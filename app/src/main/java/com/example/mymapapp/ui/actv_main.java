@@ -1,7 +1,6 @@
 package com.example.mymapapp.ui;
 
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -23,10 +22,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import com.example.mymapapp.R;
 import com.example.mymapapp.adapter.Adapter_location_search;
 import com.example.mymapapp.databinding.ActvMainBinding;
-import com.example.mymapapp.model.DirectionsResponse;
 import com.example.mymapapp.model.GeocodingResult;
-import com.example.mymapapp.utils.GeocodingService;
-import com.example.mymapapp.utils.OpenRouteServiceAPI;
+import com.example.mymapapp.network.Api_map_service;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 
@@ -40,17 +37,8 @@ import org.osmdroid.views.overlay.Polyline;
 import java.util.ArrayList;
 import java.util.List;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
-
 public class actv_main extends AppCompatActivity {
     private static final int LOCATION_PERMISSION_REQUEST = 1;
-
-    private static final String OPEN_ROUTE_SERVICE_BASE_URL = "https://api.openrouteservice.org/";
-    private static final String OPEN_STREET_MAP_BASE_URL = "https://nominatim.openstreetmap.org/";
 
     private ActvMainBinding binding;
 
@@ -148,6 +136,7 @@ public class actv_main extends AppCompatActivity {
                     if(!s.toString().isEmpty()){
                         binding.actvMainEtClearBtn.setVisibility(View.VISIBLE);
                         delayedTask = () -> searchLocation(s.toString());
+
                         handler.postDelayed(delayedTask, 500); // 1-second delay
                     }
                     else{
@@ -166,7 +155,7 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainLocationMenuCloseBtn.setOnClickListener(v -> binding.actvMainLocationMenuLayout.setVisibility(View.GONE));
 
         binding.actvMainLocationMenuDirectionBtn.setOnClickListener(v -> {
-            createRoute();
+            createRoute(currentLocationMarker, setLocationMarker);
         });
     }
 
@@ -230,111 +219,26 @@ public class actv_main extends AppCompatActivity {
     }
 
     private void searchLocation(String query) {
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(OPEN_STREET_MAP_BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        GeocodingService geocodingService = retrofit.create(GeocodingService.class);
-
-        Call<List<GeocodingResult>> call = geocodingService.searchLocation(query, "json");
-        call.enqueue(new Callback<List<GeocodingResult>>() {
-
-            @Override
-            public void onResponse(Call<List<GeocodingResult>> call, Response<List<GeocodingResult>> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    List<GeocodingResult> results = response.body();
-
-                    if (!results.isEmpty()) {
-                        locations.clear();
-                        locations.addAll(results);
-                        // Iterate over the results and place markers on the map
-                        for (GeocodingResult result : results) {
-                            Log.d("Locations", result.getDisplay_name() + " " + result.getLat() + " " + result.getLon());
-                        }
-                        location_search_adapter.notifyDataSetChanged();
-
-                        //Toast.makeText(actv_main.this, results.size() + " locations found", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(actv_main.this, "No results found", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    Toast.makeText(actv_main.this, "Error fetching results", Toast.LENGTH_SHORT).show();
-                }
+        Api_map_service.searchLocation(this, query, (results -> {
+            locations.clear();
+            locations.addAll(results);
+            // Iterate over the results and place markers on the map
+            for (GeocodingResult result : results) {
+                Log.d("Locations", result.getDisplay_name() + " " + result.getLat() + " " + result.getLon());
             }
-
-
-            @Override
-            public void onFailure(Call<List<GeocodingResult>> call, Throwable t) {
-                Toast.makeText(actv_main.this, "Error occurred", Toast.LENGTH_SHORT).show();
-            }
-        });
+            location_search_adapter.notifyDataSetChanged();
+        }));
     }
 
     //ROUTE FUNCTIONS
-    private void createRoute() {
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(OPEN_ROUTE_SERVICE_BASE_URL)  // Base URL without the specific endpoint
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        OpenRouteServiceAPI api = retrofit.create(OpenRouteServiceAPI.class);
-
-        // Declare start and end coordinates
-        double startLongitude = currentLocationMarker.getPosition().getLongitude();
-        double startLatitude = currentLocationMarker.getPosition().getLatitude();
-
-        double endLongitude = setLocationMarker.getPosition().getLongitude();
-        double endLatitude = setLocationMarker.getPosition().getLatitude();
-
-        Log.d("Route Coordinates", "Start: " + startLatitude + ", " + startLongitude);
-        Log.d("Route Coordinates", "End: " + endLatitude + ", " + endLongitude);
-
-        // Build the URL with query parameters for start and end coordinates
-        String url = "v2/directions/driving-car?start=" + startLongitude + "," + startLatitude +
-                "&end=" + endLongitude + "," + endLatitude;
-        Log.d("Route Coordinates", "URL: " + url);
-
-        // Make the request with the correct URL format
-        Call<DirectionsResponse> call = api.getRouteWithQueryParams(url);
-
-        call.enqueue(new Callback<DirectionsResponse>() {
-            @Override
-            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
-                if (response.isSuccessful()) {
-                    Log.d("Route Coordinates", "Success");
-
-                    DirectionsResponse directionsResponse = response.body();
-
-                    Log.d("Route Coordinates", directionsResponse.getRoutes().toString());
-
-                    if (directionsResponse != null) {
-                        List<DirectionsResponse.Route> routes = directionsResponse.getRoutes();
-                        if (routes != null && !routes.isEmpty()) {
-                            // Access the route data
-                            List<List<Double>> coordinates = routes.get(0).getGeometry().getCoordinates();
-                            plotRoute(coordinates);
-                        } else {
-                            Toast.makeText(actv_main.this, "No routes found", Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        Toast.makeText(actv_main.this, "Error: Null response body", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    Toast.makeText(actv_main.this, "Error: " + response.code(), Toast.LENGTH_SHORT).show();
-                    Log.d("Route Coordinates", response.toString());
-                }
-            }
-
-
-            @Override
-            public void onFailure(Call<DirectionsResponse> call, Throwable t) {
-                Toast.makeText(actv_main.this, "Failed: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
+    private void createRoute(Marker startMarker, Marker endMarker) {
+        Api_map_service.createRoute(this, startMarker, endMarker, (results) -> {
+            plotRoute(results);
+            binding.actvMainLocationMenuLayout.setVisibility(View.GONE);
         });
     }
 
-
+    //Plotting route on the map
     public void plotRoute(List<List<Double>> coordinates) {
         // Remove previous route if it exists
         if (currentRoute != null) {
@@ -378,12 +282,11 @@ public class actv_main extends AppCompatActivity {
             return;
         }
 
-        double minLat = Double.MAX_VALUE;
-        double maxLat = Double.MIN_VALUE;
-        double minLon = Double.MAX_VALUE;
-        double maxLon = Double.MIN_VALUE;
+        // Initialize the bounding box values
+        double minLat = Double.MAX_VALUE, maxLat = Double.MIN_VALUE;
+        double minLon = Double.MAX_VALUE, maxLon = Double.MIN_VALUE;
 
-        // Calculate the bounding box from marker points
+        // Calculate the extreme values of latitude and longitude
         for (GeoPoint point : markerPoints) {
             minLat = Math.min(minLat, point.getLatitude());
             maxLat = Math.max(maxLat, point.getLatitude());
@@ -391,15 +294,27 @@ public class actv_main extends AppCompatActivity {
             maxLon = Math.max(maxLon, point.getLongitude());
         }
 
+        // Calculate the latitude and longitude span (distance between min and max)
+        double latSpan = maxLat - minLat;
+        double lonSpan = maxLon - minLon;
+
+        // Define a relative padding factor
+        double paddingFactorLon = 0.5;
+        double paddingFactorLat = 0.1;
+
+        // Calculate dynamic padding
+        double latPadding = latSpan * paddingFactorLon;
+        double lonPadding = lonSpan * paddingFactorLat;
+
+        // Create a padded bounding box
         BoundingBox paddedBoundingBox = new BoundingBox(
-                maxLat + 0.01, maxLon + 0.01,
-                minLat - 0.01, minLon - 0.01
+                maxLat + latPadding, maxLon + lonPadding,
+                minLat - latPadding, minLon - lonPadding
         );
 
         // Adjust the map view to fit the bounding box
         binding.actvMainMapview.zoomToBoundingBox(paddedBoundingBox, true); // Animated zoom
     }
-
 
     private void hideKeyboard() {
         // Get the InputMethodManager
