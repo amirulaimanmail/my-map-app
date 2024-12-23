@@ -31,7 +31,7 @@ public class Api_map_service {
     }
 
     public interface createRouteOnCompleteListener{
-        void onCompleteListener(List<List<Double>> coordinates);
+        void onCompleteListener(List<List<Double>> coordinates, Double duration, Double distance);
     }
 
     public static void searchLocation(Context context, String query, searchLocationOnCompleteListener listener) {
@@ -50,10 +50,11 @@ public class Api_map_service {
                 if (response.isSuccessful() && response.body() != null) {
                     List<GeocodingResult> results = response.body();
 
+                    //noinspection StatementWithEmptyBody
                     if (!results.isEmpty()) {
                         listener.onCompleteListener(results);
                     } else {
-                        Toast.makeText(context, "No results found", Toast.LENGTH_SHORT).show();
+                        //Toast.makeText(context, "No results found", Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     Toast.makeText(context, "Error fetching results", Toast.LENGTH_SHORT).show();
@@ -68,7 +69,7 @@ public class Api_map_service {
     }
 
     //ROUTE FUNCTIONS
-    public static void createRoute(Context context, Marker startMarker, Marker endMarker, createRouteOnCompleteListener listener) {
+    public static void createRoute(Context context, Marker startMarker, Marker endMarker, int travelMode, createRouteOnCompleteListener listener) {
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(OPEN_ROUTE_SERVICE_BASE_URL)  // Base URL without the specific endpoint
                 .addConverterFactory(GsonConverterFactory.create())
@@ -86,8 +87,14 @@ public class Api_map_service {
         Log.d("Route Coordinates", "Start: " + startLatitude + ", " + startLongitude);
         Log.d("Route Coordinates", "End: " + endLatitude + ", " + endLongitude);
 
+        String walkingMode = "driving-car";
+
+        if(travelMode == 1){
+            walkingMode = "foot-walking";
+        }
+
         // Build the URL with query parameters for start and end coordinates
-        String url = "v2/directions/driving-car?start=" + startLongitude + "," + startLatitude +
+        String url = "v2/directions/" + walkingMode + "?start=" + startLongitude + "," + startLatitude +
                 "&end=" + endLongitude + "," + endLatitude;
         Log.d("Route Coordinates", "URL: " + url);
 
@@ -102,13 +109,14 @@ public class Api_map_service {
 
                     DirectionsResponse directionsResponse = response.body();
 
-                    Log.d("Route Coordinates", directionsResponse.getRoutes().toString());
+                    //Log.d("Route Coordinates", String.valueOf(directionsResponse.getRoutes().get(0).getProperties().getSegments().get(0).getDistance()));
 
+                    assert directionsResponse != null;
                     List<DirectionsResponse.Route> routes = directionsResponse.getRoutes();
                     if (routes != null && !routes.isEmpty()) {
                         // Access the route data
                         List<List<Double>> coordinates = routes.get(0).getGeometry().getCoordinates();
-                        listener.onCompleteListener(coordinates);
+                        listener.onCompleteListener(coordinates, directionsResponse.getRoutes().get(0).getProperties().getSegments().get(0).getDuration() ,directionsResponse.getRoutes().get(0).getProperties().getSegments().get(0).getDistance());
                     } else {
                         Toast.makeText(context, "No routes found", Toast.LENGTH_SHORT).show();
                     }

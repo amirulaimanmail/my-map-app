@@ -13,6 +13,7 @@ okhttp = "5.0.0-alpha.14"
 gson = "2.11.0"
 retrofit = "2.11.0"
 converterGson = "2.11.0"
+animatedtablayout = "0.1"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }

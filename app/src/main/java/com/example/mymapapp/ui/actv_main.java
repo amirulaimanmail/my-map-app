@@ -1,20 +1,25 @@
 package com.example.mymapapp.ui;
 
 import android.content.pm.PackageManager;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.Editable;
+import android.text.SpannableString;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -24,8 +29,11 @@ import com.example.mymapapp.adapter.Adapter_location_search;
 import com.example.mymapapp.databinding.ActvMainBinding;
 import com.example.mymapapp.model.GeocodingResult;
 import com.example.mymapapp.network.Api_map_service;
+import com.example.mymapapp.utils.UtilStringTag;
+import com.example.mymapapp.utils.UtilUnitConversion;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.material.tabs.TabLayout;
 
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.BoundingBox;
@@ -47,13 +55,15 @@ public class actv_main extends AppCompatActivity {
 
     private ArrayList<GeocodingResult> locations;
 
-    private String destinationLocationName;
+    private String fromLocationName, destinationLocationName;
 
-    private Boolean allowSearch;
+    private Boolean allowSearch, navMode;
+
+    private Boolean fromEtFocused, toEtFocused;
 
     private Adapter_location_search location_search_adapter;
 
-    private Marker currentLocationMarker, setLocationMarker;
+    private Marker currentLocationMarker, fromLocationMarker, toLocationMarker;
     private Polyline currentRoute;
 
     @Override
@@ -74,28 +84,19 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainMapview.getZoomController().setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER);
 
         currentLocationMarker = new Marker(binding.actvMainMapview);
-        setLocationMarker = new Marker(binding.actvMainMapview);
+        fromLocationMarker = new Marker(binding.actvMainMapview);
+        toLocationMarker = new Marker(binding.actvMainMapview);
         currentRoute = new Polyline();
 
         binding.actvMainLocationMenuLayout.setVisibility(View.GONE);
+        binding.actvMainNavigationMenuLayout.setVisibility(View.GONE);
 
         // Initialize FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         //setup adapter
         LinearLayoutManager searchLocationLayoutManager = new LinearLayoutManager(this);
-        location_search_adapter = new Adapter_location_search(locations, mMapController, (geocodingResult) -> {
-            destinationLocationName = geocodingResult.getDisplay_name();
-            binding.actvMainLocationMenuTv.setText(destinationLocationName);
-            allowSearch = false;
-            binding.actvMainEt.setText(destinationLocationName);
-            allowSearch = true;
-
-            GeoPoint location = new GeoPoint(Double.parseDouble(geocodingResult.getLat()), Double.parseDouble(geocodingResult.getLon()));
-            showLocationOnMap(location, setLocationMarker);
-            binding.actvMainLocationMenuLayout.setVisibility(View.VISIBLE);
-            hideKeyboard();
-        });
+        location_search_adapter = new Adapter_location_search(locations, this::handleAdapterCallback);
         binding.actvMainSearchRv.setLayoutManager(searchLocationLayoutManager);
         binding.actvMainSearchRv.setAdapter(location_search_adapter);
 
@@ -108,9 +109,40 @@ public class actv_main extends AppCompatActivity {
             getCurrentLocation();
         }
 
+        //Handle on back functions
+        toEtFocused = false;
+        fromEtFocused = false;
+
+        binding.actvMainFromLayout.setVisibility(View.GONE);
+        navMode = false;
+        OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if(toEtFocused || fromEtFocused){
+                    binding.actvMainToEt.clearFocus();
+                    binding.actvMainFromEt.clearFocus();
+
+                    binding.actvMainToEtClearBtn.setVisibility(View.GONE);
+                    binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
+                }
+                else if(navMode){
+                    navMode = false;
+                    binding.actvMainFromLayout.setVisibility(View.GONE);
+                    binding.actvMainNavigationMenuLayout.setVisibility(View.GONE);
+                }
+                else{
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                    setEnabled(true);
+                }
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, callback);
+
         allowSearch = true;
 
-        binding.actvMainEt.addTextChangedListener(new TextWatcher() {
+        //HANDLE TO EDITTEXT
+        binding.actvMainToEt.addTextChangedListener(new TextWatcher() {
             private final Handler handler = new Handler();
             private Runnable delayedTask;
 
@@ -134,29 +166,141 @@ public class actv_main extends AppCompatActivity {
                 // Schedule the new task to run after 1 second
                 if(allowSearch){
                     if(!s.toString().isEmpty()){
-                        binding.actvMainEtClearBtn.setVisibility(View.VISIBLE);
+                        binding.actvMainToEtClearBtn.setVisibility(View.VISIBLE);
                         delayedTask = () -> searchLocation(s.toString());
 
                         handler.postDelayed(delayedTask, 500); // 1-second delay
                     }
                     else{
-                        binding.actvMainEtClearBtn.setVisibility(View.GONE);
+                        binding.actvMainToEtClearBtn.setVisibility(View.GONE);
                     }
                 }
             }
         });
 
-        binding.actvMainEtClearBtn.setVisibility(View.GONE);
-        binding.actvMainEtClearBtn.setOnClickListener(v -> {
-            binding.actvMainEtClearBtn.setVisibility(View.GONE);
-            binding.actvMainEt.setText("");
+        binding.actvMainToEtClearBtn.setVisibility(View.GONE);
+        binding.actvMainToEtClearBtn.setOnClickListener(v -> {
+            binding.actvMainToEtClearBtn.setVisibility(View.GONE);
+            binding.actvMainToEt.setText("");
+        });
+
+        binding.actvMainToEt.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                toEtFocused = true;
+                if (!binding.actvMainToEt.getText().toString().isEmpty()) {
+                    binding.actvMainToEtClearBtn.setVisibility(View.VISIBLE);
+                }
+                setRecyclerConstraint(binding.actvMainToLayout);
+            }
+            else{
+                toEtFocused = false;
+
+                allowSearch = false;
+                binding.actvMainToEt.setText(destinationLocationName);
+                allowSearch = true;
+
+                locations.clear();
+                location_search_adapter.notifyDataSetChanged();
+                binding.actvMainToEtClearBtn.setVisibility(View.GONE);
+            }
+        });
+
+
+        //HANDLE FROM EDITTEXT
+        binding.actvMainFromEt.addTextChangedListener(new TextWatcher() {
+            private final Handler handler = new Handler();
+            private Runnable delayedTask;
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // No action needed before text changes
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Cancel the previous task if the user types again
+                locations.clear();
+                location_search_adapter.notifyDataSetChanged();
+                if (delayedTask != null) {
+                    handler.removeCallbacks(delayedTask);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                // Schedule the new task to run after 1 second
+                if(allowSearch){
+                    if(!s.toString().isEmpty()){
+                        binding.actvMainFromEtClearBtn.setVisibility(View.VISIBLE);
+                        delayedTask = () -> searchLocation(s.toString());
+
+                        handler.postDelayed(delayedTask, 500); // 1-second delay
+                    }
+                    else{
+                        binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
+                    }
+                }
+            }
+        });
+
+        binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
+        binding.actvMainFromEtClearBtn.setOnClickListener(v -> {
+            binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
+            binding.actvMainFromEt.setText("");
+        });
+
+        binding.actvMainFromEt.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                fromEtFocused = true;
+                if (!binding.actvMainFromEt.getText().toString().isEmpty()) {
+                    binding.actvMainFromEtClearBtn.setVisibility(View.VISIBLE);
+                }
+                setRecyclerConstraint(binding.actvMainFromLayout);
+            }
+            else{
+                fromEtFocused = false;
+
+                allowSearch = false;
+                binding.actvMainFromEt.setText(fromLocationName);
+                allowSearch = true;
+
+                locations.clear();
+                location_search_adapter.notifyDataSetChanged();
+                binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
+            }
+        });
+
+        //HANDLE TAB LAYOUT
+        binding.actvMainTabLayout.addTab(binding.actvMainTabLayout.newTab().setText("Drive"));
+        binding.actvMainTabLayout.addTab(binding.actvMainTabLayout.newTab().setText("Walk"));
+        // Set a listener to handle tab selection
+        binding.actvMainTabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                // Handle tab selection
+                int selectedTabPosition = tab.getPosition();
+                if(selectedTabPosition == 0){
+                    createRoute(fromLocationMarker, toLocationMarker, 0);
+                } else if (selectedTabPosition == 1) {
+                    createRoute(fromLocationMarker, toLocationMarker, 1);
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // Handle tab unselection
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // Handle tab reselection
+            }
         });
 
         binding.actvMainLocationMenuCloseBtn.setOnClickListener(v -> binding.actvMainLocationMenuLayout.setVisibility(View.GONE));
+        binding.actvMainLocationMenuDirectionBtn.setOnClickListener(v -> createRoute(fromLocationMarker, toLocationMarker, 0));
 
-        binding.actvMainLocationMenuDirectionBtn.setOnClickListener(v -> {
-            createRoute(currentLocationMarker, setLocationMarker);
-        });
+        binding.actvMainNavigationMenuCloseBtn.setOnClickListener(v -> binding.actvMainNavigationMenuLayout.setVisibility(View.GONE));
     }
 
     @Override
@@ -179,18 +323,21 @@ public class actv_main extends AppCompatActivity {
         fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
             if (location != null) {
                 GeoPoint convertLocation = new GeoPoint(location.getLatitude(), location.getLongitude());
-                showLocationOnMap(convertLocation, currentLocationMarker);
+                setLocationOnMap(convertLocation, currentLocationMarker, true, false);
+                fromLocationMarker.setPosition(convertLocation);
             } else {
                 Toast.makeText(this, "Unable to fetch current location", Toast.LENGTH_SHORT).show();
             }
-        }).addOnFailureListener(e -> {
-            Toast.makeText(this, "Error fetching location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        });
+        }).addOnFailureListener(e -> Toast.makeText(this, "Error fetching location: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
-    private void showLocationOnMap(GeoPoint location, Marker marker) {
-        // Set map center
-        mMapController.setCenter(location);
+    private void setLocationOnMap(GeoPoint location, Marker marker, Boolean showLocation, Boolean isDestination) {
+        // Show location functions
+        if(showLocation){
+            double zoomLevel = 18;
+            long zoomSpeed = 800;
+            mMapController.animateTo(location, zoomLevel, zoomSpeed);
+        }
 
         // Add a marker at the current location
         marker.setPosition(location);
@@ -201,6 +348,9 @@ public class actv_main extends AppCompatActivity {
         if(marker == currentLocationMarker){
             drawable = ContextCompat.getDrawable(this, R.drawable.ic_my_location_pin);
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+        }
+        else if(!isDestination){
+            drawable = ContextCompat.getDrawable(this, R.drawable.ic_location_marker);
         }
 
         marker.setIcon(drawable);
@@ -214,8 +364,6 @@ public class actv_main extends AppCompatActivity {
         });
 
         binding.actvMainMapview.getOverlays().add(marker);
-
-        //Toast.makeText(this, "Location set to: " + location.getLatitude() + ", " + location.getLongitude(), Toast.LENGTH_SHORT).show();
     }
 
     private void searchLocation(String query) {
@@ -231,15 +379,30 @@ public class actv_main extends AppCompatActivity {
     }
 
     //ROUTE FUNCTIONS
-    private void createRoute(Marker startMarker, Marker endMarker) {
-        Api_map_service.createRoute(this, startMarker, endMarker, (results) -> {
-            plotRoute(results);
+    private void createRoute(Marker startMarker, Marker endMarker, int travelMode) {
+        Api_map_service.createRoute(this, startMarker, endMarker, travelMode, (results, duration, distance) -> {
+            plotRoute(results, travelMode);
             binding.actvMainLocationMenuLayout.setVisibility(View.GONE);
+
+            if(travelMode == 0){
+                binding.actvMainNavigationMenuTransportModeTv.setText(R.string.drive);
+            }
+            else if(travelMode == 1){
+                binding.actvMainNavigationMenuTransportModeTv.setText(R.string.walking);
+
+            }
+
+            binding.actvMainNavigationMenuLayout.setVisibility(View.VISIBLE);
+            binding.actvMainNavigationMenuDistanceTv.setText(UtilUnitConversion.formatMetersToKilometers(distance));
+            binding.actvMainNavigationMenuDurationTv.setText(UtilUnitConversion.formatSecondsToTime(duration));
+
+            binding.actvMainFromLayout.setVisibility(View.VISIBLE);
+            navMode = true;
         });
     }
 
     //Plotting route on the map
-    public void plotRoute(List<List<Double>> coordinates) {
+    public void plotRoute(List<List<Double>> coordinates, int travelMode) {
         // Remove previous route if it exists
         if (currentRoute != null) {
             binding.actvMainMapview.getOverlays().remove(currentRoute);
@@ -255,6 +418,7 @@ public class actv_main extends AppCompatActivity {
 
         // Create a new polyline and set the points
         currentRoute = new Polyline();
+        currentRoute.setGeodesic(true);
         currentRoute.setPoints(geoPoints);
 
         // Create the paint object for styling the polyline
@@ -263,6 +427,12 @@ public class actv_main extends AppCompatActivity {
         paint.setStrokeWidth(10);     // Set polyline width to 8 pixels
         paint.setAntiAlias(true);    // Smooth out edges
         paint.setStrokeCap(Paint.Cap.ROUND);
+
+        if(travelMode == 1){
+            float[] dashPattern = {5f, 50f};  // Dash length and space length
+            DashPathEffect dashPathEffect = new DashPathEffect(dashPattern, 0);
+            paint.setPathEffect(dashPathEffect);
+        }
 
         // Apply the paint style to the polyline
         currentRoute.getOutlinePaint().set(paint);  // Use outline paint for setting stroke color and width
@@ -306,14 +476,66 @@ public class actv_main extends AppCompatActivity {
         double latPadding = latSpan * paddingFactorLon;
         double lonPadding = lonSpan * paddingFactorLat;
 
-        // Create a padded bounding box
+        // Apply a minimum bounding box size to avoid zooming in too much
+        double minBoxSize = 0.01; // Minimum allowable span for latitude and longitude
+        if (latSpan < minBoxSize) {
+            latPadding = minBoxSize / 2; // Increase the padding to reach the minimum size
+        }
+        if (lonSpan < minBoxSize) {
+            lonPadding = minBoxSize / 2; // Increase the padding to reach the minimum size
+        }
+
+        // Update the bounding box with the minimum size constraints
         BoundingBox paddedBoundingBox = new BoundingBox(
                 maxLat + latPadding, maxLon + lonPadding,
                 minLat - latPadding, minLon - lonPadding
         );
 
         // Adjust the map view to fit the bounding box
-        binding.actvMainMapview.zoomToBoundingBox(paddedBoundingBox, true); // Animated zoom
+        binding.actvMainMapview.zoomToBoundingBox(paddedBoundingBox, true);
+
+    }
+
+    private void handleAdapterCallback(GeocodingResult geocodingResult){
+        hideKeyboard();
+        GeoPoint location = new GeoPoint(Double.parseDouble(geocodingResult.getLat()), Double.parseDouble(geocodingResult.getLon()));
+
+        if(!navMode){
+            destinationLocationName = geocodingResult.getDisplay_name();
+            binding.actvMainLocationMenuTv.setText(destinationLocationName);
+            allowSearch = false;
+            binding.actvMainToEt.setText(destinationLocationName);
+
+            int color = ContextCompat.getColor(this, R.color.currentlocationcolor);
+            SpannableString currentLocationText = UtilStringTag.applyTagsToString("\uD83D\uDCCDCurrent Location", color);
+            binding.actvMainFromEt.setText(currentLocationText);
+
+            allowSearch = true;
+
+            setLocationOnMap(location, toLocationMarker, true, true);
+            binding.actvMainLocationMenuLayout.setVisibility(View.VISIBLE);
+        }
+        else{
+            if(fromEtFocused){
+                fromLocationName = geocodingResult.getDisplay_name();
+                allowSearch = false;
+                binding.actvMainFromEt.setText(fromLocationName);
+                allowSearch = true;
+                setLocationOnMap(location, fromLocationMarker, false, false);
+                createRoute(fromLocationMarker, toLocationMarker, 0);
+            }
+            else if(toEtFocused){
+                destinationLocationName = geocodingResult.getDisplay_name();
+                allowSearch = false;
+                binding.actvMainToEt.setText(destinationLocationName);
+                allowSearch = true;
+                setLocationOnMap(location, toLocationMarker, false, true);
+                createRoute(fromLocationMarker, toLocationMarker, 0);
+            }
+        }
+
+        binding.actvMainToEt.clearFocus();
+        binding.actvMainFromEt.clearFocus();
     }
 
     private void hideKeyboard() {
@@ -327,4 +549,12 @@ public class actv_main extends AppCompatActivity {
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
     }
+
+    private void setRecyclerConstraint(ConstraintLayout layout) {
+        ConstraintSet constraintSet = new ConstraintSet();
+        constraintSet.clone(binding.actvMainRootLayout);
+        constraintSet.connect(binding.actvMainSearchRv.getId(), ConstraintSet.TOP, layout.getId(), ConstraintSet.BOTTOM, 0);
+        constraintSet.applyTo(binding.actvMainRootLayout);
+    }
+
 }

@@ -1,7 +1,7 @@
 package com.example.mymapapp.adapter;
 
+import android.annotation.SuppressLint;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -10,23 +10,19 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.mymapapp.databinding.RecyclerItemSearchLocationBinding;
 import com.example.mymapapp.model.GeocodingResult;
 
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.MapController;
-
 import java.util.ArrayList;
 
+/** @noinspection FieldCanBeLocal*/
 public class Adapter_location_search extends RecyclerView.Adapter<Adapter_location_search.location_search_list_viewholder>{
     private final ArrayList<GeocodingResult> geocodingResults;
-    private MapController mapController;
     private final OnItemClickListener listener;
 
     public interface OnItemClickListener {
         void onItemClicked(GeocodingResult geocodingResult);
     }
 
-    public Adapter_location_search(ArrayList<GeocodingResult> geocodingResults, MapController mapController, OnItemClickListener listener) {
+    public Adapter_location_search(ArrayList<GeocodingResult> geocodingResults, OnItemClickListener listener) {
         this.geocodingResults = geocodingResults;
-        this.mapController = mapController;
         this.listener = listener;
     }
 
@@ -38,18 +34,12 @@ public class Adapter_location_search extends RecyclerView.Adapter<Adapter_locati
         return new location_search_list_viewholder(binding);
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onBindViewHolder(@NonNull Adapter_location_search.location_search_list_viewholder holder, int position) {
         GeocodingResult geocodingResult = geocodingResults.get(position);
-
         holder.binding.setLocation(geocodingResult);
-
-        GeoPoint location = new GeoPoint(Double.parseDouble(geocodingResult.getLat()), Double.parseDouble(geocodingResult.getLon()));
-
         holder.itemView.setOnClickListener(v -> {
-            double zoomLevel = 18;
-            long zoomSpeed = 800;
-            mapController.animateTo(location, zoomLevel, zoomSpeed);
 
             if (listener != null) {
                 listener.onItemClicked(geocodingResult);
