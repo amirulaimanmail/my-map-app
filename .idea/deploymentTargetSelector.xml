@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2024-12-18T07:34:09.519384100Z">
+        <DropdownSelection timestamp="2024-12-24T04:48:53.341335700Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CN80YGCXN" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\hotsh\.android\avd\Amirul_Phone_4.avd" />
             </handle>
           </Target>
         </DropdownSelection>

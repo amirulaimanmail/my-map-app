@@ -10,8 +10,11 @@ import android.text.Editable;
 import android.text.SpannableString;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
@@ -40,6 +43,7 @@ import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapController;
 import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.Overlay;
 import org.osmdroid.views.overlay.Polyline;
 
 import java.util.ArrayList;
@@ -57,7 +61,7 @@ public class actv_main extends AppCompatActivity {
 
     private String fromLocationName, destinationLocationName;
 
-    private Boolean allowSearch, navMode;
+    private Boolean allowSearch, navMode, allowTabFunction;
 
     private Boolean fromEtFocused, toEtFocused;
 
@@ -129,6 +133,23 @@ public class actv_main extends AppCompatActivity {
                     navMode = false;
                     binding.actvMainFromLayout.setVisibility(View.GONE);
                     binding.actvMainNavigationMenuLayout.setVisibility(View.GONE);
+
+                    //Reset start location
+                    fromLocationMarker.setPosition(currentLocationMarker.getPosition());
+
+                    //Clear map
+                    // Assuming the overlay you want to keep is `specificOverlay`
+                    final Overlay specificOverlay = currentLocationMarker;
+                    // Loop through all overlays and remove the ones that are not `specificOverlay`
+                    List<Overlay> overlays = binding.actvMainMapview.getOverlays();
+                    for (Overlay overlay : overlays) {
+                        if (overlay != specificOverlay) {
+                            binding.actvMainMapview.getOverlays().remove(overlay);
+                        }
+                    }
+                    // Optionally, call invalidate to refresh the map
+                    binding.actvMainMapview.invalidate();
+
                 }
                 else{
                     setEnabled(false);
@@ -271,24 +292,51 @@ public class actv_main extends AppCompatActivity {
         });
 
         //HANDLE TAB LAYOUT
-        binding.actvMainTabLayout.addTab(binding.actvMainTabLayout.newTab().setText("Drive"));
-        binding.actvMainTabLayout.addTab(binding.actvMainTabLayout.newTab().setText("Walk"));
+        binding.actvMainTabLayout.addTab(createCustomTab(binding.actvMainTabLayout.newTab(), getString(R.string.drive), R.drawable.ic_drive, true));
+        binding.actvMainTabLayout.addTab(createCustomTab(binding.actvMainTabLayout.newTab(), getString(R.string.walk), R.drawable.ic_walk, false));
+
+        allowTabFunction = true;
         // Set a listener to handle tab selection
         binding.actvMainTabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                // Handle tab selection
-                int selectedTabPosition = tab.getPosition();
-                if(selectedTabPosition == 0){
-                    createRoute(fromLocationMarker, toLocationMarker, 0);
-                } else if (selectedTabPosition == 1) {
-                    createRoute(fromLocationMarker, toLocationMarker, 1);
+                View customView = tab.getCustomView();
+
+                if (customView != null) {
+                    ImageView tabIcon = customView.findViewById(R.id.tab_icon);
+                    TextView tabTitle = customView.findViewById(R.id.tab_title);
+                    ConstraintLayout tabBackground = customView.findViewById(R.id.tab_background);
+
+                    // Change the colors for the selected tab
+                    tabIcon.setColorFilter(ContextCompat.getColor(actv_main.this, R.color.white));
+                    tabTitle.setTextColor(ContextCompat.getColor(actv_main.this, R.color.white));
+                    tabBackground.setBackgroundResource(R.drawable.tab_selected_bg);
+                }
+
+                if(allowTabFunction){
+                    // Handle tab selection
+                    int selectedTabPosition = tab.getPosition();
+                    if(selectedTabPosition == 0){
+                        createRoute(fromLocationMarker, toLocationMarker, 0);
+                    } else if (selectedTabPosition == 1) {
+                        createRoute(fromLocationMarker, toLocationMarker, 1);
+                    }
                 }
             }
 
             @Override
             public void onTabUnselected(TabLayout.Tab tab) {
-                // Handle tab unselection
+                View customView = tab.getCustomView();
+                if (customView != null) {
+                    ImageView tabIcon = customView.findViewById(R.id.tab_icon);
+                    TextView tabTitle = customView.findViewById(R.id.tab_title);
+                    ConstraintLayout tabBackground = customView.findViewById(R.id.tab_background);
+
+                    // Reset the colors for unselected tabs
+                    tabIcon.setColorFilter(ContextCompat.getColor(actv_main.this, R.color.black));
+                    tabTitle.setTextColor(ContextCompat.getColor(actv_main.this, R.color.black));
+                    tabBackground.setBackgroundResource(R.color.transparent);
+                }
             }
 
             @Override
@@ -297,10 +345,19 @@ public class actv_main extends AppCompatActivity {
             }
         });
 
+        //SETUP BUTTONS
         binding.actvMainLocationMenuCloseBtn.setOnClickListener(v -> binding.actvMainLocationMenuLayout.setVisibility(View.GONE));
-        binding.actvMainLocationMenuDirectionBtn.setOnClickListener(v -> createRoute(fromLocationMarker, toLocationMarker, 0));
+        binding.actvMainLocationMenuDirectionBtn.setOnClickListener(v -> {
+            createRoute(fromLocationMarker, toLocationMarker, 0);
 
-        binding.actvMainNavigationMenuCloseBtn.setOnClickListener(v -> binding.actvMainNavigationMenuLayout.setVisibility(View.GONE));
+            allowTabFunction = false;
+            binding.actvMainTabLayout.selectTab(binding.actvMainTabLayout.getTabAt(0));
+            allowTabFunction = true;
+        });
+
+        binding.actvMainNavigationMenuCloseBtn.setOnClickListener(v -> {
+            getOnBackPressedDispatcher().onBackPressed();
+        });
     }
 
     @Override
@@ -388,7 +445,7 @@ public class actv_main extends AppCompatActivity {
                 binding.actvMainNavigationMenuTransportModeTv.setText(R.string.drive);
             }
             else if(travelMode == 1){
-                binding.actvMainNavigationMenuTransportModeTv.setText(R.string.walking);
+                binding.actvMainNavigationMenuTransportModeTv.setText(R.string.walk);
 
             }
 
@@ -532,6 +589,9 @@ public class actv_main extends AppCompatActivity {
                 setLocationOnMap(location, toLocationMarker, false, true);
                 createRoute(fromLocationMarker, toLocationMarker, 0);
             }
+            allowTabFunction = false;
+            binding.actvMainTabLayout.selectTab(binding.actvMainTabLayout.getTabAt(0));
+            allowTabFunction = true;
         }
 
         binding.actvMainToEt.clearFocus();
@@ -557,4 +617,23 @@ public class actv_main extends AppCompatActivity {
         constraintSet.applyTo(binding.actvMainRootLayout);
     }
 
+    private TabLayout.Tab createCustomTab(TabLayout.Tab tab, String title, int resId, Boolean firstTab){
+        View customView = LayoutInflater.from(this).inflate(R.layout.layout_tab_travelmode, null);
+        ImageView tabIcon = customView.findViewById(R.id.tab_icon);
+        TextView tabTitle = customView.findViewById(R.id.tab_title);
+
+        // Set icon and title dynamically
+        tabIcon.setImageResource(resId);
+        tabTitle.setText(title);
+
+        if(firstTab){
+            ConstraintLayout tabBackground = customView.findViewById(R.id.tab_background);
+            // Change the colors for the selected tab
+            tabIcon.setColorFilter(ContextCompat.getColor(actv_main.this, R.color.white));
+            tabTitle.setTextColor(ContextCompat.getColor(actv_main.this, R.color.white));
+            tabBackground.setBackgroundResource(R.drawable.tab_selected_bg);
+        }
+
+        return tab.setCustomView(customView);
+    }
 }

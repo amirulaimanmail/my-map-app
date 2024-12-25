@@ -3,4 +3,5 @@
     <string name="search">Search…</string>
     <string name="drive">Drive</string>
     <string name="walking">Walking</string>
+    <string name="walk">Walk</string>
 </resources>

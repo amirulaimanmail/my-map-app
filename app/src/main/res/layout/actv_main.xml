@@ -102,7 +102,6 @@
         android:layout_height="wrap_content"
         android:background="@color/grey_300"
         android:padding="20dp"
-        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@+id/actv_main_mapview">
 
         <TextView
@@ -115,12 +114,15 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="@+id/actv_main_location_menu_close_btn" />
 
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/actv_main_location_menu_direction_btn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="Directions"
+            android:textColor="@color/white"
+            android:background="@drawable/btn_green_1"
+            android:paddingHorizontal="20dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/actv_main_location_menu_tv" />
 
@@ -140,7 +142,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/grey_300"
-        android:paddingBottom="60dp"
         app:layout_constraintBottom_toTopOf="@+id/actv_main_location_menu_layout">
 
         <com.google.android.material.tabs.TabLayout
@@ -150,13 +151,11 @@
             android:layout_marginEnd="20dp"
             android:background="@color/grey_300"
             app:tabRippleColor="@color/transparent"
-            app:tabTextColor="@color/black"
-            app:tabSelectedTextColor="@color/green"
-            app:tabIndicatorColor="@color/green"
+            app:tabIndicator="@color/transparent"
+            app:tabMode="scrollable"
             app:layout_constraintEnd_toStartOf="@+id/actv_main_navigation_menu_close_btn"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
-
 
         <TextView
             android:id="@+id/actv_main_navigation_menu_transport_mode_tv"
@@ -174,12 +173,13 @@
             android:id="@+id/actv_main_navigation_menu_duration_tv"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
             android:layout_marginTop="16dp"
+            android:layout_marginBottom="32dp"
             android:text="15 min"
             android:textColor="@color/green"
-            android:textSize="20sp"
-            app:layout_constraintStart_toStartOf="parent"
+            android:textSize="26sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/actv_main_navigation_menu_transport_mode_tv"
             app:layout_constraintTop_toBottomOf="@+id/actv_main_navigation_menu_transport_mode_tv" />
 
         <TextView
@@ -191,8 +191,7 @@
             android:textColor="@color/black"
             android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="@+id/actv_main_navigation_menu_duration_tv"
-            app:layout_constraintStart_toEndOf="@+id/actv_main_navigation_menu_duration_tv"
-            app:layout_constraintTop_toTopOf="@+id/actv_main_navigation_menu_duration_tv" />
+            app:layout_constraintStart_toEndOf="@+id/actv_main_navigation_menu_duration_tv" />
 
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/actv_main_navigation_menu_close_btn"
