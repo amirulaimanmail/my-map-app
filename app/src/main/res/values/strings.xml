@@ -4,4 +4,5 @@
     <string name="drive">Drive</string>
     <string name="walking">Walking</string>
     <string name="walk">Walk</string>
+    <string name="icon_for_tabs">Icon for tabs</string>
 </resources>

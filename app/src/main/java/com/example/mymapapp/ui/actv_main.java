@@ -12,7 +12,9 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -32,6 +34,7 @@ import com.example.mymapapp.adapter.Adapter_location_search;
 import com.example.mymapapp.databinding.ActvMainBinding;
 import com.example.mymapapp.model.GeocodingResult;
 import com.example.mymapapp.network.Api_map_service;
+import com.example.mymapapp.utils.UtilStringTag;
 import com.example.mymapapp.utils.UtilUnitConversion;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -50,6 +53,7 @@ import org.osmdroid.views.overlay.Polyline;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class actv_main extends AppCompatActivity {
     private static final int LOCATION_PERMISSION_REQUEST = 1;
@@ -108,7 +112,7 @@ public class actv_main extends AppCompatActivity {
 
         //setup adapter
         LinearLayoutManager searchLocationLayoutManager = new LinearLayoutManager(this);
-        location_search_adapter = new Adapter_location_search(locations, this::handleAdapterCallback);
+        location_search_adapter = new Adapter_location_search(this, locations, this::handleAdapterCallback);
         binding.actvMainSearchRv.setLayoutManager(searchLocationLayoutManager);
         binding.actvMainSearchRv.setAdapter(location_search_adapter);
 
@@ -198,7 +202,7 @@ public class actv_main extends AppCompatActivity {
                         binding.actvMainToEtClearBtn.setVisibility(View.VISIBLE);
                         delayedTask = () -> searchLocation(s.toString());
 
-                        handler.postDelayed(delayedTask, 500); // 1-second delay
+                        handler.postDelayed(delayedTask, 500);
                     }
                     else{
                         binding.actvMainToEtClearBtn.setVisibility(View.GONE);
@@ -216,7 +220,7 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainToEt.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 toEtFocused = true;
-                if (!binding.actvMainToEt.getText().toString().isEmpty()) {
+                if (!Objects.requireNonNull(binding.actvMainToEt.getText()).toString().isEmpty()) {
                     binding.actvMainToEtClearBtn.setVisibility(View.VISIBLE);
                 }
                 setRecyclerConstraint(binding.actvMainToLayout);
@@ -225,7 +229,7 @@ public class actv_main extends AppCompatActivity {
                 toEtFocused = false;
 
                 allowSearch = false;
-                binding.actvMainToEt.setText(destinationLocationName);
+                checkCurrentLocationString(binding.actvMainToEt, destinationLocationName);
                 allowSearch = true;
 
                 clearLocationsArray();
@@ -263,7 +267,7 @@ public class actv_main extends AppCompatActivity {
                         binding.actvMainFromEtClearBtn.setVisibility(View.VISIBLE);
                         delayedTask = () -> searchLocation(s.toString());
 
-                        handler.postDelayed(delayedTask, 500); // 1-second delay
+                        handler.postDelayed(delayedTask, 500);
                     }
                     else{
                         binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
@@ -281,7 +285,7 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainFromEt.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 fromEtFocused = true;
-                if (!binding.actvMainFromEt.getText().toString().isEmpty()) {
+                if (!Objects.requireNonNull(binding.actvMainFromEt.getText()).toString().isEmpty()) {
                     binding.actvMainFromEtClearBtn.setVisibility(View.VISIBLE);
                 }
                 setRecyclerConstraint(binding.actvMainFromLayout);
@@ -290,7 +294,7 @@ public class actv_main extends AppCompatActivity {
                 fromEtFocused = false;
 
                 allowSearch = false;
-                binding.actvMainFromEt.setText(fromLocationName);
+                checkCurrentLocationString(binding.actvMainFromEt, fromLocationName);
                 allowSearch = true;
 
                 clearLocationsArray();
@@ -389,10 +393,9 @@ public class actv_main extends AppCompatActivity {
 
                 double zoomLevel = 18;
                 long zoomSpeed = 800;
-
                 mMapController.animateTo(currentLocationMarker.getPosition(), zoomLevel, zoomSpeed);
 
-                binding.actvMainMapview.postDelayed(() -> currentLocationFocused = true, zoomSpeed);
+                binding.actvMainMapview.postDelayed(() -> currentLocationFocused = true, zoomSpeed + 100);
             }
         });
     }
@@ -418,8 +421,8 @@ public class actv_main extends AppCompatActivity {
             if (location != null) {
                 GeoPoint convertLocation = new GeoPoint(location.getLatitude(), location.getLongitude());
                 setLocationOnMap(convertLocation, currentLocationMarker, true, false);
-                fromLocationMarker.setPosition(convertLocation);
                 currentLocationOption = new GeocodingResult(String.valueOf(location.getLatitude()), String.valueOf(location.getLongitude()), "\uD83D\uDCCDCurrent Location");
+                fromLocationMarker.setPosition(currentLocationMarker.getPosition());
                 clearLocationsArray();
             } else {
                 Toast.makeText(this, "Unable to fetch current location", Toast.LENGTH_SHORT).show();
@@ -523,7 +526,7 @@ public class actv_main extends AppCompatActivity {
 
         // Create the paint object for styling the polyline
         Paint paint = new Paint();
-        paint.setColor(getResources().getColor(R.color.routepathcolor));  // Set polyline color to blue
+        paint.setColor(ContextCompat.getColor(this, R.color.routepathcolor));  // Set polyline color to blue
         paint.setStrokeWidth(10);     // Set polyline width to 8 pixels
         paint.setAntiAlias(true);    // Smooth out edges
         paint.setStrokeCap(Paint.Cap.ROUND);
@@ -603,13 +606,10 @@ public class actv_main extends AppCompatActivity {
         if(!navMode){
             destinationLocationName = geocodingResult.getDisplay_name();
             binding.actvMainLocationMenuTv.setText(destinationLocationName);
+
             allowSearch = false;
-            binding.actvMainToEt.setText(destinationLocationName);
-
-//            int color = ContextCompat.getColor(this, R.color.currentlocationcolor);
-//            SpannableString currentLocationText = UtilStringTag.applyTagsToString("\uD83D\uDCCDCurrent Location", color);
-            binding.actvMainFromEt.setText("\uD83D\uDCCDCurrent Location");
-
+            checkCurrentLocationString(binding.actvMainToEt, destinationLocationName);
+            binding.actvMainFromEt.setText(UtilStringTag.currentLocationText(this));
             allowSearch = true;
 
             setLocationOnMap(location, toLocationMarker, true, true);
@@ -618,17 +618,21 @@ public class actv_main extends AppCompatActivity {
         else{
             if(fromEtFocused){
                 fromLocationName = geocodingResult.getDisplay_name();
+
                 allowSearch = false;
-                binding.actvMainFromEt.setText(fromLocationName);
+                checkCurrentLocationString(binding.actvMainFromEt, fromLocationName);
                 allowSearch = true;
+
                 setLocationOnMap(location, fromLocationMarker, false, false);
                 createRoute(fromLocationMarker, toLocationMarker, 0);
             }
             else if(toEtFocused){
                 destinationLocationName = geocodingResult.getDisplay_name();
+
                 allowSearch = false;
-                binding.actvMainToEt.setText(destinationLocationName);
+                checkCurrentLocationString(binding.actvMainToEt, destinationLocationName);
                 allowSearch = true;
+
                 setLocationOnMap(location, toLocationMarker, false, true);
                 createRoute(fromLocationMarker, toLocationMarker, 0);
             }
@@ -641,18 +645,6 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainFromEt.clearFocus();
     }
 
-    private void hideKeyboard() {
-        // Get the InputMethodManager
-        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-
-        // Get the current focused view
-        View view = this.getCurrentFocus();
-        if (view != null) {
-            // Hide the keyboard
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-        }
-    }
-
     private void setRecyclerConstraint(ConstraintLayout layout) {
         ConstraintSet constraintSet = new ConstraintSet();
         constraintSet.clone(binding.actvMainRootLayout);
@@ -661,7 +653,9 @@ public class actv_main extends AppCompatActivity {
     }
 
     private TabLayout.Tab createCustomTab(TabLayout.Tab tab, String title, int resId, Boolean firstTab){
-        View customView = LayoutInflater.from(this).inflate(R.layout.layout_tab_travelmode, null);
+        ViewGroup parent = findViewById(R.id.tab_background);
+        View customView = LayoutInflater.from(this).inflate(R.layout.layout_tab_travelmode, parent, false);
+
         ImageView tabIcon = customView.findViewById(R.id.tab_icon);
         TextView tabTitle = customView.findViewById(R.id.tab_title);
 
@@ -683,6 +677,27 @@ public class actv_main extends AppCompatActivity {
     private void clearLocationsArray(){
         locations.clear();
         locations.add(currentLocationOption);
+    }
+
+    private void checkCurrentLocationString(EditText et, String location){
+        if(location.equals("\uD83D\uDCCDCurrent Location")){
+            et.setText(UtilStringTag.currentLocationText(this));
+        }
+        else{
+            et.setText(location);
+        }
+    }
+
+    private void hideKeyboard() {
+        // Get the InputMethodManager
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+
+        // Get the current focused view
+        View view = this.getCurrentFocus();
+        if (view != null) {
+            // Hide the keyboard
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
     }
 
     @SuppressLint("NotifyDataSetChanged")

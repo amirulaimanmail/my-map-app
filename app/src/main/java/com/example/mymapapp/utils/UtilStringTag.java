@@ -1,5 +1,6 @@
 package com.example.mymapapp.utils;
 
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.text.Spannable;
@@ -8,6 +9,9 @@ import android.text.style.ReplacementSpan;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+
+import com.example.mymapapp.R;
 
 public class UtilStringTag {
 
@@ -51,5 +55,10 @@ public class UtilStringTag {
             // Restore the original paint color
             paint.setColor(originalColor);
         }
+    }
+
+    public static SpannableString currentLocationText(Context context){
+        int color = ContextCompat.getColor(context, R.color.routepathcolor);
+        return UtilStringTag.applyTagsToString("\uD83D\uDCCDCurrent Location", color);
     }
 }
