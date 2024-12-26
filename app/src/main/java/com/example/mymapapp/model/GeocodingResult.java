@@ -1,9 +1,16 @@
 package com.example.mymapapp.model;
 
+/** @noinspection unused*/
 public class GeocodingResult {
     private String lat;
     private String lon;
     private String display_name;
+
+    public GeocodingResult(String lat, String lon, String display_name) {
+        this.lat = lat;
+        this.lon = lon;
+        this.display_name = display_name;
+    }
 
     public String getLat() {
         return lat;

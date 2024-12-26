@@ -6,19 +6,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+
     <org.osmdroid.views.MapView
         android:id="@+id/actv_main_mapview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_editor_absoluteX="0dp" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/actv_main_from_layout"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="10dp"
         android:background="@drawable/et_location_bg"
         android:paddingHorizontal="15dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <androidx.appcompat.widget.AppCompatEditText
@@ -88,10 +92,50 @@
             app:layout_constraintTop_toTopOf="@+id/actv_main_to_et" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <androidx.cardview.widget.CardView
+        android:id="@+id/actv_main_location_btn_card"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="100dp"
+        app:layout_constraintBottom_toTopOf="@+id/actv_main_navigation_menu_layout"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintWidth_percent="0.13">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/actv_main_location_btn_layout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/white">
+
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/actv_main_location_btn"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_ripple"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <View
+                android:id="@+id/actv_main_location_icon_view"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:background="@drawable/ic_my_location_pin"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintDimensionRatio="1:1"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_percent="0.5" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/actv_main_search_rv"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="@color/grey_300"
         app:layout_constraintEnd_toEndOf="@+id/actv_main_to_layout"
         app:layout_constraintStart_toStartOf="@+id/actv_main_to_layout"
         app:layout_constraintTop_toBottomOf="@+id/actv_main_to_layout" />
@@ -119,10 +163,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Directions"
-            android:textColor="@color/white"
             android:background="@drawable/btn_green_1"
             android:paddingHorizontal="20dp"
+            android:text="Directions"
+            android:textColor="@color/white"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/actv_main_location_menu_tv" />
 
@@ -150,12 +194,12 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="20dp"
             android:background="@color/grey_300"
-            app:tabRippleColor="@color/transparent"
-            app:tabIndicator="@color/transparent"
-            app:tabMode="scrollable"
             app:layout_constraintEnd_toStartOf="@+id/actv_main_navigation_menu_close_btn"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:tabIndicator="@color/transparent"
+            app:tabMode="scrollable"
+            app:tabRippleColor="@color/transparent" />
 
         <TextView
             android:id="@+id/actv_main_navigation_menu_transport_mode_tv"
@@ -203,7 +247,6 @@
             app:layout_constraintBottom_toBottomOf="@+id/actv_main_tab_layout"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

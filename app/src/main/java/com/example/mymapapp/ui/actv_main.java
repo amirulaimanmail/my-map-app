@@ -1,5 +1,6 @@
 package com.example.mymapapp.ui;
 
+import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
@@ -7,7 +8,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.Editable;
-import android.text.SpannableString;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -32,12 +32,14 @@ import com.example.mymapapp.adapter.Adapter_location_search;
 import com.example.mymapapp.databinding.ActvMainBinding;
 import com.example.mymapapp.model.GeocodingResult;
 import com.example.mymapapp.network.Api_map_service;
-import com.example.mymapapp.utils.UtilStringTag;
 import com.example.mymapapp.utils.UtilUnitConversion;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.tabs.TabLayout;
 
+import org.osmdroid.events.MapListener;
+import org.osmdroid.events.ScrollEvent;
+import org.osmdroid.events.ZoomEvent;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
@@ -61,7 +63,7 @@ public class actv_main extends AppCompatActivity {
 
     private String fromLocationName, destinationLocationName;
 
-    private Boolean allowSearch, navMode, allowTabFunction;
+    private Boolean allowSearch, navMode, allowTabFunction, currentLocationFocused;
 
     private Boolean fromEtFocused, toEtFocused;
 
@@ -69,6 +71,8 @@ public class actv_main extends AppCompatActivity {
 
     private Marker currentLocationMarker, fromLocationMarker, toLocationMarker;
     private Polyline currentRoute;
+
+    private GeocodingResult currentLocationOption;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -81,11 +85,15 @@ public class actv_main extends AppCompatActivity {
         org.osmdroid.config.Configuration.getInstance().setUserAgentValue(getPackageName());
 
         //Initialize map view
+        currentLocationFocused = true;
         binding.actvMainMapview.setTileSource(TileSourceFactory.MAPNIK);
         binding.actvMainMapview.setMultiTouchControls(true);
         mMapController = (MapController) binding.actvMainMapview.getController();
         mMapController.setZoom(18);
         binding.actvMainMapview.getZoomController().setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER);
+
+        binding.actvMainMapview.setMinZoomLevel(5.0);
+        binding.actvMainMapview.setMaxZoomLevel(20.0);
 
         currentLocationMarker = new Marker(binding.actvMainMapview);
         fromLocationMarker = new Marker(binding.actvMainMapview);
@@ -175,8 +183,8 @@ public class actv_main extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 // Cancel the previous task if the user types again
-                locations.clear();
-                location_search_adapter.notifyDataSetChanged();
+                clearLocationsArray();
+                updateAdapter();
                 if (delayedTask != null) {
                     handler.removeCallbacks(delayedTask);
                 }
@@ -220,8 +228,8 @@ public class actv_main extends AppCompatActivity {
                 binding.actvMainToEt.setText(destinationLocationName);
                 allowSearch = true;
 
-                locations.clear();
-                location_search_adapter.notifyDataSetChanged();
+                clearLocationsArray();
+                updateAdapter();
                 binding.actvMainToEtClearBtn.setVisibility(View.GONE);
             }
         });
@@ -240,8 +248,8 @@ public class actv_main extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 // Cancel the previous task if the user types again
-                locations.clear();
-                location_search_adapter.notifyDataSetChanged();
+                clearLocationsArray();
+                updateAdapter();
                 if (delayedTask != null) {
                     handler.removeCallbacks(delayedTask);
                 }
@@ -285,8 +293,8 @@ public class actv_main extends AppCompatActivity {
                 binding.actvMainFromEt.setText(fromLocationName);
                 allowSearch = true;
 
-                locations.clear();
-                location_search_adapter.notifyDataSetChanged();
+                clearLocationsArray();
+                updateAdapter();
                 binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
             }
         });
@@ -345,6 +353,23 @@ public class actv_main extends AppCompatActivity {
             }
         });
 
+        //MAP LISTENER
+        binding.actvMainMapview.addMapListener(new MapListener() {
+            @Override
+            public boolean onScroll(ScrollEvent event) {
+                if(currentLocationFocused){
+                    currentLocationFocused = false;
+                    binding.actvMainLocationIconView.setBackgroundResource(R.drawable.ic_my_location_empty);
+                }
+                return true;
+            }
+
+            @Override
+            public boolean onZoom(ZoomEvent event) {
+                return true;
+            }
+        });
+
         //SETUP BUTTONS
         binding.actvMainLocationMenuCloseBtn.setOnClickListener(v -> binding.actvMainLocationMenuLayout.setVisibility(View.GONE));
         binding.actvMainLocationMenuDirectionBtn.setOnClickListener(v -> {
@@ -355,8 +380,20 @@ public class actv_main extends AppCompatActivity {
             allowTabFunction = true;
         });
 
-        binding.actvMainNavigationMenuCloseBtn.setOnClickListener(v -> {
-            getOnBackPressedDispatcher().onBackPressed();
+        binding.actvMainNavigationMenuCloseBtn.setOnClickListener(v -> getOnBackPressedDispatcher().onBackPressed());
+
+        binding.actvMainLocationBtn.setOnClickListener(v -> {
+            if(!currentLocationFocused){
+                binding.actvMainLocationIconView.setBackgroundResource(R.drawable.ic_my_location_pin);
+                mMapController.stopPanning();
+
+                double zoomLevel = 18;
+                long zoomSpeed = 800;
+
+                mMapController.animateTo(currentLocationMarker.getPosition(), zoomLevel, zoomSpeed);
+
+                binding.actvMainMapview.postDelayed(() -> currentLocationFocused = true, zoomSpeed);
+            }
         });
     }
 
@@ -382,6 +419,8 @@ public class actv_main extends AppCompatActivity {
                 GeoPoint convertLocation = new GeoPoint(location.getLatitude(), location.getLongitude());
                 setLocationOnMap(convertLocation, currentLocationMarker, true, false);
                 fromLocationMarker.setPosition(convertLocation);
+                currentLocationOption = new GeocodingResult(String.valueOf(location.getLatitude()), String.valueOf(location.getLongitude()), "\uD83D\uDCCDCurrent Location");
+                clearLocationsArray();
             } else {
                 Toast.makeText(this, "Unable to fetch current location", Toast.LENGTH_SHORT).show();
             }
@@ -390,9 +429,10 @@ public class actv_main extends AppCompatActivity {
 
     private void setLocationOnMap(GeoPoint location, Marker marker, Boolean showLocation, Boolean isDestination) {
         // Show location functions
+        double zoomLevel = 18;
+        long zoomSpeed = 800;
+
         if(showLocation){
-            double zoomLevel = 18;
-            long zoomSpeed = 800;
             mMapController.animateTo(location, zoomLevel, zoomSpeed);
         }
 
@@ -408,14 +448,17 @@ public class actv_main extends AppCompatActivity {
         }
         else if(!isDestination){
             drawable = ContextCompat.getDrawable(this, R.drawable.ic_location_marker);
+            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+        }
+
+        if (marker != currentLocationMarker && marker.getPosition().equals(currentLocationMarker.getPosition()) && !isDestination) {
+            binding.actvMainMapview.getOverlays().remove(marker);
+            return; // Do nothing if the marker position matches the currentLocationMarker
         }
 
         marker.setIcon(drawable);
 
         marker.setOnMarkerClickListener((clickedMarker, mapView) -> {
-            double zoomLevel = 18;
-            long zoomSpeed = 800;
-
             mapView.getController().animateTo(clickedMarker.getPosition(), zoomLevel, zoomSpeed);
             return true;
         });
@@ -425,13 +468,13 @@ public class actv_main extends AppCompatActivity {
 
     private void searchLocation(String query) {
         Api_map_service.searchLocation(this, query, (results -> {
-            locations.clear();
+            clearLocationsArray();
             locations.addAll(results);
             // Iterate over the results and place markers on the map
             for (GeocodingResult result : results) {
                 Log.d("Locations", result.getDisplay_name() + " " + result.getLat() + " " + result.getLon());
             }
-            location_search_adapter.notifyDataSetChanged();
+            updateAdapter();
         }));
     }
 
@@ -563,9 +606,9 @@ public class actv_main extends AppCompatActivity {
             allowSearch = false;
             binding.actvMainToEt.setText(destinationLocationName);
 
-            int color = ContextCompat.getColor(this, R.color.currentlocationcolor);
-            SpannableString currentLocationText = UtilStringTag.applyTagsToString("\uD83D\uDCCDCurrent Location", color);
-            binding.actvMainFromEt.setText(currentLocationText);
+//            int color = ContextCompat.getColor(this, R.color.currentlocationcolor);
+//            SpannableString currentLocationText = UtilStringTag.applyTagsToString("\uD83D\uDCCDCurrent Location", color);
+            binding.actvMainFromEt.setText("\uD83D\uDCCDCurrent Location");
 
             allowSearch = true;
 
@@ -635,5 +678,15 @@ public class actv_main extends AppCompatActivity {
         }
 
         return tab.setCustomView(customView);
+    }
+
+    private void clearLocationsArray(){
+        locations.clear();
+        locations.add(currentLocationOption);
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private void updateAdapter(){
+        location_search_adapter.notifyDataSetChanged();
     }
 }
