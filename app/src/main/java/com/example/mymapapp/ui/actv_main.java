@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -107,6 +108,7 @@ public class actv_main extends AppCompatActivity {
 
         binding.actvMainLocationMenuLayout.setVisibility(View.GONE);
         binding.actvMainNavigationMenuLayout.setVisibility(View.GONE);
+        binding.actvMainSearchLayout.setVisibility(View.GONE);
 
         // Initialize FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -146,6 +148,9 @@ public class actv_main extends AppCompatActivity {
                     navMode = false;
                     binding.actvMainFromLayout.setVisibility(View.GONE);
                     binding.actvMainNavigationMenuLayout.setVisibility(View.GONE);
+
+                    binding.actvMainToEt.clearFocus();
+                    binding.actvMainFromEt.clearFocus();
 
                     //Reset start location
                     fromLocationMarker.setPosition(currentLocationMarker.getPosition());
@@ -221,21 +226,24 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainToEt.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 toEtFocused = true;
+                clearLocationsArray();
                 if (!Objects.requireNonNull(binding.actvMainToEt.getText()).toString().isEmpty()) {
                     binding.actvMainToEtClearBtn.setVisibility(View.VISIBLE);
                 }
-                setRecyclerConstraint(binding.actvMainToLayout);
+                setRecyclerLayoutConstraint(binding.actvMainToLayout);
+                binding.actvMainSearchLayout.setVisibility(View.VISIBLE);
             }
             else{
                 toEtFocused = false;
 
                 allowSearch = false;
-                checkCurrentLocationString(binding.actvMainToEt, destinationLocationName);
+                if(destinationLocationName != null){
+                    checkCurrentLocationString(binding.actvMainToEt, destinationLocationName);
+                }
                 allowSearch = true;
 
-                clearLocationsArray();
-                updateAdapter();
                 binding.actvMainToEtClearBtn.setVisibility(View.GONE);
+                binding.actvMainSearchLayout.setVisibility(View.GONE);
             }
         });
 
@@ -285,11 +293,14 @@ public class actv_main extends AppCompatActivity {
 
         binding.actvMainFromEt.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
+                clearLocationsArray();
                 fromEtFocused = true;
                 if (!Objects.requireNonNull(binding.actvMainFromEt.getText()).toString().isEmpty()) {
                     binding.actvMainFromEtClearBtn.setVisibility(View.VISIBLE);
                 }
-                setRecyclerConstraint(binding.actvMainFromLayout);
+                setRecyclerLayoutConstraint(binding.actvMainFromLayout);
+                binding.actvMainSearchLayout.setVisibility(View.VISIBLE);
+                binding.actvMainToLayout.setVisibility(View.GONE);
             }
             else{
                 fromEtFocused = false;
@@ -298,9 +309,9 @@ public class actv_main extends AppCompatActivity {
                 checkCurrentLocationString(binding.actvMainFromEt, fromLocationName);
                 allowSearch = true;
 
-                clearLocationsArray();
-                updateAdapter();
                 binding.actvMainFromEtClearBtn.setVisibility(View.GONE);
+                binding.actvMainSearchLayout.setVisibility(View.GONE);
+                binding.actvMainToLayout.setVisibility(View.VISIBLE);
             }
         });
 
@@ -646,10 +657,17 @@ public class actv_main extends AppCompatActivity {
         binding.actvMainFromEt.clearFocus();
     }
 
-    private void setRecyclerConstraint(ConstraintLayout layout) {
+    private void setRecyclerLayoutConstraint(ConstraintLayout layout) {
         ConstraintSet constraintSet = new ConstraintSet();
         constraintSet.clone(binding.actvMainRootLayout);
-        constraintSet.connect(binding.actvMainSearchRv.getId(), ConstraintSet.TOP, layout.getId(), ConstraintSet.BOTTOM, 0);
+
+        int marginInPx = (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                18, // margin in sp
+                this.getResources().getDisplayMetrics()
+        );
+
+        constraintSet.connect(binding.actvMainSearchLayout.getId(), ConstraintSet.TOP, layout.getId(), ConstraintSet.TOP, marginInPx);
         constraintSet.applyTo(binding.actvMainRootLayout);
     }
 
