@@ -34,6 +34,7 @@ import com.example.mymapapp.adapter.Adapter_location_search;
 import com.example.mymapapp.databinding.ActvMainBinding;
 import com.example.mymapapp.model.GeocodingResult;
 import com.example.mymapapp.network.Api_map_service;
+import com.example.mymapapp.utils.UtilCustomPathOverlay;
 import com.example.mymapapp.utils.UtilStringTag;
 import com.example.mymapapp.utils.UtilUnitConversion;
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -74,7 +75,7 @@ public class actv_main extends AppCompatActivity {
     private Adapter_location_search location_search_adapter;
 
     private Marker currentLocationMarker, fromLocationMarker, toLocationMarker;
-    private Polyline currentRoute;
+    private Overlay currentRoute;
 
     private GeocodingResult currentLocationOption;
 
@@ -506,6 +507,14 @@ public class actv_main extends AppCompatActivity {
 
     //Plotting route on the map
     public void plotRoute(List<List<Double>> coordinates, int travelMode) {
+
+        // Create the default paint object for styling the polyline
+        Paint paint = new Paint();
+        paint.setColor(ContextCompat.getColor(this, R.color.routepathcolor));  // Set polyline color to blue
+        paint.setStrokeWidth(10);
+        paint.setAntiAlias(true);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+
         // Remove previous route if it exists
         if (currentRoute != null) {
             binding.actvMainMapview.getOverlays().remove(currentRoute);
@@ -519,28 +528,19 @@ public class actv_main extends AppCompatActivity {
             geoPoints.add(new GeoPoint(lat, lon));
         }
 
-        // Create a new polyline and set the points
-        currentRoute = new Polyline();
-        currentRoute.setGeodesic(true);
-        currentRoute.setPoints(geoPoints);
+        currentRoute = new UtilCustomPathOverlay(geoPoints, paint);
 
-        // Create the paint object for styling the polyline
-        Paint paint = new Paint();
-        paint.setColor(ContextCompat.getColor(this, R.color.routepathcolor));  // Set polyline color to blue
-        paint.setStrokeWidth(10);     // Set polyline width to 8 pixels
-        paint.setAntiAlias(true);    // Smooth out edges
-        paint.setStrokeCap(Paint.Cap.ROUND);
+        if (travelMode == 1) {
+            paint.setStrokeWidth(15);
 
-        if(travelMode == 1){
-            float[] dashPattern = {5f, 50f};  // Dash length and space length
+            float[] dashPattern = {0f, 30f};  // Dash length and space length
             DashPathEffect dashPathEffect = new DashPathEffect(dashPattern, 0);
             paint.setPathEffect(dashPathEffect);
+            currentRoute = new UtilCustomPathOverlay(geoPoints, paint);
+
         }
 
-        // Apply the paint style to the polyline
-        currentRoute.getOutlinePaint().set(paint);  // Use outline paint for setting stroke color and width
-
-        // Add the styled polyline to the map
+        // Add overlay to map view
         binding.actvMainMapview.getOverlays().add(currentRoute);
 
         // Refresh the map view
@@ -548,6 +548,7 @@ public class actv_main extends AppCompatActivity {
 
         fitMarkersToMap(geoPoints);
     }
+
 
     // Method to fit markers on the map
     public void fitMarkersToMap(List<GeoPoint> markerPoints) {
