@@ -9,9 +9,15 @@ import retrofit2.http.GET;
 import retrofit2.http.Query;
 
 public interface GeocodingService {
-
     // Nominatim API for geocoding addresses
-    @GET("search")
-    Call<List<GeocodingResult>> searchLocation(@Query("q") String query, @Query("format") String format);
+    @GET("geocode/search")
+    Call<List<GeocodingResult>> searchLocation(
+            @Query("api_key") String apiKey,
+            @Query("text") String query,
+            @Query("sources") String sources,
+            @Query("layers") String layers,
+            @Query("size") int size,
+            @Query("boundary.country") String country
+    );
 }
 

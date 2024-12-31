@@ -7,12 +7,13 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import com.example.mymapapp.model.DirectionsResponse;
+import com.example.mymapapp.model.GeocodingResponse;
 import com.example.mymapapp.model.GeocodingResult;
-import com.example.mymapapp.utils.GeocodingService;
 import com.example.mymapapp.utils.OpenRouteServiceAPI;
 
 import org.osmdroid.views.overlay.Marker;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import retrofit2.Call;
@@ -24,7 +25,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class Api_map_service {
 
     private static final String OPEN_ROUTE_SERVICE_BASE_URL = "https://api.openrouteservice.org/";
-    private static final String OPEN_STREET_MAP_BASE_URL = "https://nominatim.openstreetmap.org/";
 
     public interface searchLocationOnCompleteListener{
         void onCompleteListener(List<GeocodingResult> results);
@@ -36,25 +36,46 @@ public class Api_map_service {
 
     public static void searchLocation(Context context, String query, searchLocationOnCompleteListener listener) {
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(OPEN_STREET_MAP_BASE_URL)
+                .baseUrl(OPEN_ROUTE_SERVICE_BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
-        GeocodingService geocodingService = retrofit.create(GeocodingService.class);
+        OpenRouteServiceAPI geocodingService = retrofit.create(OpenRouteServiceAPI.class);
 
-        Call<List<GeocodingResult>> call = geocodingService.searchLocation(query, "json");
-        call.enqueue(new Callback<List<GeocodingResult>>() {
+        Call<GeocodingResponse> call = geocodingService.searchLocation(
+                "5b3ce3597851110001cf62489cdbe9fc2aae49ad8621b47ec5a197be",
+                query,
+                "openstreetmap",
+                "venue",
+                5,
+                "MY"
+        );
 
+        call.enqueue(new Callback<GeocodingResponse>() {
             @Override
-            public void onResponse(@NonNull Call<List<GeocodingResult>> call, @NonNull Response<List<GeocodingResult>> response) {
+            public void onResponse(@NonNull Call<GeocodingResponse> call, @NonNull Response<GeocodingResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    List<GeocodingResult> results = response.body();
+                    GeocodingResponse geocodingResponse = response.body();
+                    List<GeocodingResponse.Feature> features = geocodingResponse.getFeatures();
 
-                    //noinspection StatementWithEmptyBody
-                    if (!results.isEmpty()) {
+                    if (features != null && !features.isEmpty()) {
+                        List<GeocodingResult> results = new ArrayList<>();
+                        for (GeocodingResponse.Feature feature : features) {
+                            List<Double> coordinates = feature.getGeometry().getCoordinates();
+                            String label = feature.getProperties().getLabel();
+
+                            if (coordinates != null && coordinates.size() >= 2) {
+                                GeocodingResult result = new GeocodingResult(
+                                        String.valueOf(coordinates.get(1)), // Latitude
+                                        String.valueOf(coordinates.get(0)), // Longitude
+                                        label
+                                );
+                                results.add(result);
+                            }
+                        }
                         listener.onCompleteListener(results);
                     } else {
-                        //Toast.makeText(context, "No results found", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, "No results found", Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     Toast.makeText(context, "Error fetching results", Toast.LENGTH_SHORT).show();
@@ -62,11 +83,12 @@ public class Api_map_service {
             }
 
             @Override
-            public void onFailure(@NonNull Call<List<GeocodingResult>> call, @NonNull Throwable t) {
+            public void onFailure(@NonNull Call<GeocodingResponse> call, @NonNull Throwable t) {
                 Toast.makeText(context, "Failed: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
+
 
     //ROUTE FUNCTIONS
     public static void createRoute(Context context, Marker startMarker, Marker endMarker, int travelMode, createRouteOnCompleteListener listener) {
